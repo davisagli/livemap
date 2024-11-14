@@ -50,12 +50,17 @@ setup(
     zip_safe=False,
     python_requires=">=3.8",
     install_requires=[
+        "a2wsgi",
         "setuptools",
         "Plone",
         "plone.api",
         "plone.restapi",
         "plone.volto",
         "plone.exportimport",
+        "pydantic",
+        "starlette",
+        "user-agents",
+        "uvicorn",
     ],
     extras_require={
         "test": [
