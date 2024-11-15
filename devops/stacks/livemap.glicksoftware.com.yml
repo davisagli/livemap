@@ -1,5 +1,5 @@
 ---
-version: '3.8'
+version: "3.8"
 
 services:
   traefik:
@@ -78,7 +78,7 @@ services:
       - nw-public
       - nw-internal
     deploy:
-      replicas: 2
+      replicas: 1
       update_config:
         parallelism: 1
         delay: 5s
@@ -107,7 +107,7 @@ services:
       - nw-public
       - nw-internal
     deploy:
-      replicas: 2
+      replicas: 1
       update_config:
         parallelism: 1
         delay: 5s
