@@ -60,7 +60,7 @@ setup(
         "pydantic",
         "starlette",
         "user-agents",
-        "uvicorn",
+        "uvicorn[standard]",
     ],
     extras_require={
         "test": [
