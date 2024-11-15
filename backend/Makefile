@@ -88,7 +88,7 @@ remove-data: ## Remove all content
 
 .PHONY: start
 start: ## Start a Plone instance on localhost:8080
-	$(BIN_FOLDER)/python src/livemap/asgi.py instance/etc/zope.conf
+	$(BIN_FOLDER)/python -m livemap.asgi instance/etc/zope.conf
 
 .PHONY: console
 console: instance/etc/zope.ini ## Start a console into a Plone instance
