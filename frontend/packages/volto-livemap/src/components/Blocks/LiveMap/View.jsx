@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { v4 as uuid } from 'uuid';
 import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
@@ -9,9 +9,20 @@ const View = (props) => {
 
   const mapContainer = useRef(null);
   const mapref = useRef(null);
-  const self = useRef({});
   const visitors = useRef({});
   const ws = useRef(null);
+
+  // persist uid and name
+  const [uid] = useState(() => {
+    let uid = localStorage.getItem('livemap_uid');
+    if (uid === null) {
+      uid = uuid();
+      localStorage.setItem('livemap_uid', uid);
+    }
+    return uid;
+  });
+  const [name] = useState(() => localStorage.getItem('livemap_name') || '');
+  const self = useRef({ name });
 
   const updateMap = () => {
     const points = Object.values(visitors.current);
@@ -35,79 +46,35 @@ const View = (props) => {
     if (source) {
       source.setData(features);
     } else {
-      // todo: adjust to keep points in frame?
       if (points.length) {
-        map.setCenter(points[0].coordinates);
+        const bounds = features.features.reduce(
+          (bounds, feature) => bounds.extend(feature.geometry.coordinates),
+          new maplibregl.LngLatBounds(),
+        );
+        map.fitBounds(bounds, { maxZoom: 12, padding: 30 });
       }
       map.addSource('visitors', {
         type: 'geojson',
         data: features,
       });
-      // implementation of StyleImageInterface to draw a pulsing dot icon on the map
-      // Search for StyleImageInterface in https://maplibre.org/maplibre-gl-js/docs/API/
-      const size = 100;
-      const pulsingDot = {
-        width: size,
-        height: size,
-        data: new Uint8Array(size * size * 4),
-
-        // get rendering context for the map canvas when layer is added to the map
-        onAdd() {
-          const canvas = document.createElement('canvas');
-          canvas.width = this.width;
-          canvas.height = this.height;
-          this.context = canvas.getContext('2d');
-        },
-
-        // called once before every frame where the icon will be used
-        render() {
-          //const duration = 2000;
-          const t = 0; // (performance.now() % duration) / duration;
-
-          const radius = (size / 2) * 0.3;
-          const outerRadius = (size / 2) * 0.7 * t + radius;
-          const context = this.context;
-
-          // draw outer circle
-          context.clearRect(0, 0, this.width, this.height);
-          context.beginPath();
-          context.arc(
-            this.width / 2,
-            this.height / 2,
-            outerRadius,
-            0,
-            Math.PI * 2,
-          );
-          context.fillStyle = `rgba(255, 200, 200,${1 - t})`;
-          context.fill();
-
-          // draw inner circle
-          context.beginPath();
-          context.arc(this.width / 2, this.height / 2, radius, 0, Math.PI * 2);
-          context.fillStyle = 'rgba(255, 100, 100, 1)';
-          context.strokeStyle = 'white';
-          context.lineWidth = 2 + 4 * (1 - t);
-          context.fill();
-          context.stroke();
-
-          // update this image's data with data from the canvas
-          this.data = context.getImageData(0, 0, this.width, this.height).data;
-
-          // continuously repaint the map, resulting in the smooth animation of the dot
-          // map.triggerRepaint();
-
-          // return `true` to let the map know that the image was updated
-          return true;
-        },
-      };
-      map.addImage('pulsing-dot', pulsingDot, { pixelRatio: 2 });
       map.addLayer({
-        id: 'visitors',
+        id: 'dots',
+        type: 'circle',
+        source: 'visitors',
+        paint: {
+          'circle-radius': 10,
+          'circle-blur': 0.5,
+          'circle-color': '#008080',
+          'circle-stroke-width': 2,
+          'circle-stroke-color': '#fff',
+          'circle-opacity': ['get', 'opacity'],
+        },
+      });
+      map.addLayer({
+        id: 'labels',
         type: 'symbol',
         source: 'visitors',
         layout: {
-          'icon-image': 'pulsing-dot',
-          'icon-allow-overlap': true,
           'text-field': ['get', 'name'],
           'text-font': ['Noto Sans Regular'],
           'text-offset': [0.6, 0],
@@ -115,31 +82,27 @@ const View = (props) => {
           'text-anchor': 'left',
         },
         paint: {
-          'text-color': '#c00000',
+          'text-color': '#008080',
+          'text-opacity': ['get', 'opacity'],
         },
       });
     }
   };
 
   useEffect(() => {
-    // persist uid
-    let uid = localStorage.getItem('livemap_uid');
-    if (uid === null) {
-      uid = uuid();
-      localStorage.setItem('livemap_uid', uid);
-    }
-
     // connect to websocket
     ws.current = new WebSocket(
-      `/ws/livemap/stream?block_id=${block}&user_id=${uid}`,
+      (window.location.hostname === 'localhost'
+        ? 'http://localhost:8080'
+        : '') + `/ws/livemap/stream?block_id=${block}&user_id=${uid}`,
     );
     ws.current.onmessage = (m) => {
       const visitor = JSON.parse(m.data);
       console.log(visitor);
-      if (visitor.active && visitor.location) {
+      if (visitor.location) {
         visitors.current[visitor.uid] = {
           coordinates: visitor.location.split(','),
-          properties: visitor,
+          properties: { ...visitor, opacity: visitor.active ? 1 : 0.4 },
         };
       } else {
         delete visitors.current[visitor.uid];
@@ -160,9 +123,14 @@ const View = (props) => {
         { maximumAge: 1000, enableHighAccuracy: true },
       );
     };
+    let interval = null;
     ws.current.onopen = () => {
       trackLocation();
-      setInterval(trackLocation, 5000);
+      interval = setInterval(trackLocation, 5000);
+    };
+    return () => {
+      ws.current.close();
+      if (interval) clearInterval(interval);
     };
   }, []);
 
@@ -170,7 +138,8 @@ const View = (props) => {
     const map = (mapref.current = new maplibregl.Map({
       container: mapContainer.current,
       projection: 'globe',
-      zoom: 14,
+      zoom: 8,
+      center: [-122.333, 47.606],
       style: 'https://tiles.openfreemap.org/styles/liberty',
     }));
     map.on('load', async () => {
@@ -180,13 +149,18 @@ const View = (props) => {
   }, []);
   return (
     <div className="livemap block">
-      <input
-        onChange={(e) => {
-          self.current.name = e.target.value;
-          ws.current.send(JSON.stringify(self.current));
-        }}
-      />
-      <div ref={mapContainer} className="livemap"></div>
+      <div className="controls">
+        <input
+          placeholder="Name"
+          defaultValue={name}
+          onChange={(e) => {
+            localStorage.setItem('livemap_name', e.target.value);
+            self.current.name = e.target.value;
+            ws.current.send(JSON.stringify(self.current));
+          }}
+        />
+      </div>
+      <div ref={mapContainer}></div>
     </div>
   );
 };
