@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef } from 'react';
 import { v4 as uuid } from 'uuid';
 import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
@@ -11,18 +11,7 @@ const View = (props) => {
   const mapref = useRef(null);
   const visitors = useRef({});
   const ws = useRef(null);
-
-  // persist uid and name
-  const [uid] = useState(() => {
-    let uid = localStorage.getItem('livemap_uid');
-    if (uid === null) {
-      uid = uuid();
-      localStorage.setItem('livemap_uid', uid);
-    }
-    return uid;
-  });
-  const [name] = useState(() => localStorage.getItem('livemap_name') || '');
-  const self = useRef({ name });
+  const self = useRef({});
 
   const updateMap = () => {
     const points = Object.values(visitors.current);
@@ -90,6 +79,15 @@ const View = (props) => {
   };
 
   useEffect(() => {
+    // persist uid and name
+    let uid = localStorage.getItem('livemap_uid');
+    if (uid === null) {
+      uid = uuid();
+      localStorage.setItem('livemap_uid', uid);
+    }
+    const name = localStorage.getItem('livemap_name') || '';
+    self.current = { uid, name };
+
     // connect to websocket
     ws.current = new WebSocket(
       (window.location.hostname === 'localhost'
@@ -152,7 +150,7 @@ const View = (props) => {
       <div className="controls">
         <input
           placeholder="Name"
-          defaultValue={name}
+          defaultValue={self.current.name}
           onChange={(e) => {
             localStorage.setItem('livemap_name', e.target.value);
             self.current.name = e.target.value;
