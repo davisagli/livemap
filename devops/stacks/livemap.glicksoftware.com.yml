@@ -144,6 +144,11 @@ services:
         - traefik.http.routers.rt-backend-classic.tls=true
         - traefik.http.routers.rt-backend-classic.service=svc-backend
         - traefik.http.routers.rt-backend-classic.middlewares=gzip,mw-backend-auth,mw-backend-vhm-classic
+        ## /ws
+        - traefik.http.routers.rt-backend-ws.rule=Host(`livemap.glicksoftware.com`) && PathPrefix(`/ws/`)
+        - traefik.http.routers.rt-backend-classic.entrypoints=https
+        - traefik.http.routers.rt-backend-classic.tls=true
+        - traefik.http.routers.rt-backend-classic.service=svc-backend
 
   db:
     image: postgres:14

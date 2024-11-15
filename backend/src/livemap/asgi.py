@@ -14,7 +14,7 @@ def make_app():
     return Starlette(
         debug=True,
         routes=[
-            Mount("/livemap", app=livemap_app),
+            Mount("/ws/livemap", app=livemap_app),
             Mount("/", app=WSGIMiddleware(zope, workers=2)),
         ],
     )

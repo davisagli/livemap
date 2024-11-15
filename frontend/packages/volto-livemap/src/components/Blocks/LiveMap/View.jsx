@@ -131,7 +131,7 @@ const View = (props) => {
 
     // connect to websocket
     ws.current = new WebSocket(
-      `ws://localhost:8080/livemap/stream?block_id=${block}&user_id=${uid}`,
+      `/ws/livemap/stream?block_id=${block}&user_id=${uid}`,
     );
     ws.current.onmessage = (m) => {
       const visitor = JSON.parse(m.data);
