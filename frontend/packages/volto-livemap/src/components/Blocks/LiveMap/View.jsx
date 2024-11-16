@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { v4 as uuid } from 'uuid';
 import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
@@ -11,7 +11,17 @@ const View = (props) => {
   const mapref = useRef(null);
   const visitors = useRef({});
   const ws = useRef(null);
+  const [offset] = useState({
+    longitude: Math.random() * 0.032 - 0.016,
+    latitude: Math.random() * 0.032 - 0.016,
+  });
+  const [share, setShare] = useState('yes');
+
   const self = useRef({});
+  const save = (changes) => {
+    self.current = { ...self.current, ...changes };
+    localStorage.setItem('livemap_self', JSON.stringify(self.current));
+  };
 
   const updateMap = () => {
     const points = Object.values(visitors.current);
@@ -26,9 +36,6 @@ const View = (props) => {
         properties: visitor.properties,
       })),
     };
-    if (points.length === 0) {
-      return;
-    }
 
     const map = mapref.current;
     const source = map.getSource('visitors');
@@ -79,20 +86,21 @@ const View = (props) => {
   };
 
   useEffect(() => {
-    // persist uid and name
-    let uid = localStorage.getItem('livemap_uid');
-    if (uid === null) {
-      uid = uuid();
-      localStorage.setItem('livemap_uid', uid);
-    }
-    const name = localStorage.getItem('livemap_name') || '';
-    self.current = { uid, name };
+    // get self from localstorage
+    let data = localStorage.getItem('livemap_self');
+    const defaults = { uid: uuid(), name: '', share: 'yes' };
+    self.current = {
+      ...defaults,
+      ...(data ? JSON.parse(data) : {}),
+    };
+    setShare(self.current.share);
 
     // connect to websocket
     ws.current = new WebSocket(
       (window.location.hostname === 'localhost'
         ? 'http://localhost:8080'
-        : '') + `/ws/livemap/stream?block_id=${block}&user_id=${uid}`,
+        : '') +
+        `/ws/livemap/stream?block_id=${block}&user_id=${self.current.uid}`,
     );
     ws.current.onmessage = (m) => {
       const visitor = JSON.parse(m.data);
@@ -109,30 +117,8 @@ const View = (props) => {
         updateMap();
       }
     };
-    const trackLocation = () => {
-      // get and send current location
-      navigator.geolocation.getCurrentPosition(
-        (pos) => {
-          self.current.location = `${pos.coords.longitude},${pos.coords.latitude}`;
-          // todo: only send if it moved significantly
-          ws.current.send(JSON.stringify(self.current));
-        },
-        (error) => console.log(error),
-        { maximumAge: 1000, enableHighAccuracy: true },
-      );
-    };
-    let interval = null;
-    ws.current.onopen = () => {
-      trackLocation();
-      interval = setInterval(trackLocation, 5000);
-    };
-    return () => {
-      ws.current.close();
-      if (interval) clearInterval(interval);
-    };
-  }, []);
 
-  useEffect(() => {
+    // initialize map
     const map = (mapref.current = new maplibregl.Map({
       container: mapContainer.current,
       projection: 'globe',
@@ -144,20 +130,102 @@ const View = (props) => {
       mapref.current.ready = true;
       updateMap();
     });
-  }, []);
+    return () => ws.current.close();
+  }, [block]);
+
+  useEffect(() => {
+    // track location
+    const trackLocation = () => {
+      if (ws.current === null || ws.current.readyState !== WebSocket.OPEN) {
+        return;
+      }
+      if (share === 'no') {
+        self.current.location = null;
+        ws.current.send(
+          JSON.stringify({
+            uid: self.current.uid,
+            name: self.current.name,
+            location: null,
+          }),
+        );
+      } else {
+        // get and send current location
+        navigator.geolocation.getCurrentPosition(
+          (pos) => {
+            const location =
+              share === 'fuzzy'
+                ? `${pos.coords.longitude + offset.longitude},${pos.coords.latitude + offset.latitude}`
+                : `${pos.coords.longitude},${pos.coords.latitude}`;
+            if (location !== self.current.location) {
+              self.current.location = location;
+              ws.current.send(
+                JSON.stringify({
+                  uid: self.current.uid,
+                  name: self.current.name,
+                  location,
+                }),
+              );
+            }
+          },
+          (error) => console.log(error),
+          { maximumAge: 1000, enableHighAccuracy: true },
+        );
+      }
+    };
+    trackLocation();
+    ws.current.onopen = () => trackLocation();
+    if (share !== 'no') {
+      let interval = setInterval(trackLocation, 5000);
+      return () => clearInterval(interval);
+    }
+  }, [offset, share]);
+
   return (
     <div className="livemap block">
-      <div className="controls">
-        <input
-          placeholder="Name"
-          defaultValue={self.current.name}
-          onChange={(e) => {
-            localStorage.setItem('livemap_name', e.target.value);
-            self.current.name = e.target.value;
-            ws.current.send(JSON.stringify(self.current));
-          }}
-        />
-      </div>
+      <form className="controls ui form">
+        <div className="field">
+          <input
+            type="text"
+            autoComplete="false"
+            placeholder="Enter your name"
+            defaultValue={self.current.name}
+            onChange={(e) => {
+              save({ name: e.target.value });
+              ws.current.send(JSON.stringify(self.current));
+            }}
+          />
+        </div>
+        <div className="field">
+          <label>Share location?</label>
+          <input
+            type="radio"
+            checked={share === 'yes'}
+            onChange={() => {
+              setShare('yes');
+              save({ share: 'yes' });
+            }}
+          />{' '}
+          Yes{' '}
+          <input
+            type="radio"
+            checked={share === 'no'}
+            onChange={() => {
+              setShare('no');
+              save({ share: 'no' });
+            }}
+          />{' '}
+          No{' '}
+          <input
+            type="radio"
+            checked={share === 'fuzzy'}
+            onChange={() => {
+              setShare('fuzzy');
+              save({ share: 'fuzzy' });
+            }}
+          />{' '}
+          Fuzzy
+        </div>
+      </form>
       <div ref={mapContainer}></div>
     </div>
   );

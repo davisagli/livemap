@@ -7,11 +7,13 @@
   left: 0;
 }
 .block.livemap .controls {
-  position: fixed;
+  position: fixed !important;
   z-index: 100;
   top: 0;
   left: 0;
   flex-direction: column;
+  padding: 5px;
+  background: white;
 }
 .maplibregl-map {
   position: fixed;
