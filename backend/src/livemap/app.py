@@ -19,6 +19,7 @@ import Zope2
 
 logger = logging.getLogger("uvicorn.error")
 
+event_loop = None
 thread_executor = None
 
 
@@ -29,6 +30,7 @@ class Visitor(pydantic.BaseModel):
 
     websocket: WebSocket
     uid: str
+    user_id: str | None = None
     location: str | None = None
     name: str = ""
     active: bool = True
@@ -92,10 +94,11 @@ channels = defaultdict(Channel)
 async def stream(websocket: WebSocket):
     """Main websocket route"""
     block_id = websocket.query_params["block_id"]
-    user_id = websocket.query_params["user_id"]
+    uid = websocket.query_params["uid"]
+    user_id = await get_userid_from_websocket(websocket)
 
     channel = channels[block_id]
-    visitor = Visitor(websocket=websocket, uid=user_id)
+    visitor = Visitor(websocket=websocket, uid=uid, user_id=user_id)
     await channel.connect(visitor)
     try:
         # send existing visitors
@@ -111,8 +114,9 @@ async def stream(websocket: WebSocket):
 
 
 def make_livemap_app(executor):
-    global thread_executor
+    global thread_executor, event_loop
     thread_executor = executor
+    event_loop = asyncio.get_event_loop()
     app = Starlette(
         routes=[WebSocketRoute("/stream", endpoint=stream)],
     )
@@ -134,6 +138,7 @@ def _run_plone_func(userid, func, *args):
         newSecurityManager(None, user.getUser())
     result = func(*args)
     transaction.commit()
+    app._p_jar.close()
     return result
 
 
@@ -171,3 +176,17 @@ def _jwt_decode(token, secret):
         )
     except jwt.InvalidTokenError:
         pass
+
+
+def handle_user_properties_updated(member, event):
+    user_id = member.getId()
+    if "fullname" not in event.properties:
+        return
+    name = member.getProperty("fullname")
+    for channel in channels.values():
+        for visitor in channel.visitors.values():
+            if visitor.user_id == user_id:
+                visitor.name = name
+                asyncio.run_coroutine_threadsafe(
+                    channel.send(visitor.to_public_json()), event_loop
+                )

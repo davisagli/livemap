@@ -19,4 +19,10 @@
   <include package=".serializers" />
   <include package=".vocabularies" />
 
+  <subscriber
+      for="Products.CMFCore.interfaces.IMemberData
+           Products.PluggableAuthService.interfaces.events.IPropertiesUpdatedEvent"
+      handler=".app.handle_user_properties_updated"
+      />
+
 </configure>

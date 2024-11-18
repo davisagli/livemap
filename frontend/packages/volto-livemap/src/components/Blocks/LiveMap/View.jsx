@@ -92,6 +92,7 @@ const View = (props) => {
     self.current = {
       ...defaults,
       ...(data ? JSON.parse(data) : {}),
+      location: null,
     };
     setShare(self.current.share);
 
@@ -99,12 +100,18 @@ const View = (props) => {
     ws.current = new WebSocket(
       (window.location.hostname === 'localhost'
         ? 'http://localhost:8080'
-        : '') +
-        `/ws/livemap/stream?block_id=${block}&user_id=${self.current.uid}`,
+        : '') + `/ws/livemap/stream?block_id=${block}&uid=${self.current.uid}`,
     );
     ws.current.onmessage = (m) => {
       const visitor = JSON.parse(m.data);
       console.log(visitor);
+      if (
+        visitor.uid === self.current.uid &&
+        visitor.name &&
+        visitor.name !== self.current.name
+      ) {
+        save({ name: visitor.name });
+      }
       if (visitor.location) {
         visitors.current[visitor.uid] = {
           coordinates: visitor.location.split(','),
