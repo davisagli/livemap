@@ -1,5 +1,5 @@
 from a2wsgi import WSGIMiddleware
-from livemap.app import app as livemap_app
+from livemap.app import make_livemap_app
 from starlette.applications import Starlette
 from starlette.routing import Mount
 from Zope2.Startup.run import make_wsgi_app
@@ -11,10 +11,12 @@ import uvicorn
 def make_app():
     zope_conf = sys.argv[-1]
     zope = make_wsgi_app({}, zope_conf)
+    zope_wsgi = WSGIMiddleware(zope, workers=2)
+    livemap = make_livemap_app(zope_wsgi.executor)
     return Starlette(
         debug=True,
         routes=[
-            Mount("/ws/livemap", app=livemap_app),
+            Mount("/ws/livemap", app=livemap),
             Mount("/", app=WSGIMiddleware(zope, workers=2)),
         ],
     )

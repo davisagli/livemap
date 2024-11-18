@@ -1,15 +1,25 @@
+from AccessControl.SecurityManagement import newSecurityManager
 from collections import defaultdict
+from plone import api
+from plone.keyring.interfaces import IKeyManager
 from starlette.applications import Starlette
 from starlette.routing import WebSocketRoute
 from starlette.websockets import WebSocket
 from starlette.websockets import WebSocketDisconnect
+from zope.component import getUtility
+from zope.component.hooks import setSite
 
 import asyncio
+import jwt
 import logging
 import pydantic
+import transaction
+import Zope2
 
 
 logger = logging.getLogger("uvicorn.error")
+
+thread_executor = None
 
 
 class Visitor(pydantic.BaseModel):
@@ -63,10 +73,14 @@ class Channel:
                     tg.create_task(visitor.websocket.send_json(message))
 
     async def follow(self, visitor: Visitor):
+        userid = await get_userid_from_websocket(visitor.websocket)
         while True:
             data = await visitor.websocket.receive_json()
             visitor.location = data.get("location")
-            visitor.name = data.get("name", "")
+            name = data.get("name", "")
+            if userid and name != visitor.name:
+                await run_plone_func(userid, save_name_to_profile, name)
+            visitor.name = name
             s = visitor.to_public_json()
             logger.info(f"update: {s}")
             await self.send(s)
@@ -96,6 +110,64 @@ async def stream(websocket: WebSocket):
         await channel.send(visitor.to_public_json())
 
 
-app = Starlette(
-    routes=[WebSocketRoute("/stream", endpoint=stream)],
-)
+def make_livemap_app(executor):
+    global thread_executor
+    thread_executor = executor
+    app = Starlette(
+        routes=[WebSocketRoute("/stream", endpoint=stream)],
+    )
+    return app
+
+
+async def run_plone_func(userid, func, *args):
+    loop = asyncio.get_event_loop()
+    return await loop.run_in_executor(
+        thread_executor, _run_plone_func, userid, func, *args
+    )
+
+
+def _run_plone_func(userid, func, *args):
+    app = Zope2.bobo_application()
+    setSite(app.Plone)
+    if userid:
+        user = api.user.get(userid)
+        newSecurityManager(None, user.getUser())
+    result = func(*args)
+    transaction.commit()
+    return result
+
+
+def save_name_to_profile(name):
+    user = api.user.get_current()
+    user.setMemberProperties({"fullname": name})
+
+
+async def get_userid_from_websocket(websocket):
+    token = websocket.cookies.get("auth_token")
+    if token:
+        payload = await run_plone_func(None, get_auth_from_token, token)
+        if payload:
+            return payload["sub"]
+
+
+def get_auth_from_token(token):
+    manager = getUtility(IKeyManager)
+    for secret in manager["_system"]:
+        if secret is None:
+            continue
+        payload = _jwt_decode(token, secret + "/Plone/acl_users/jwt_auth")
+        if payload is not None:
+            return payload
+
+
+def _jwt_decode(token, secret):
+    token = token.encode("utf-8")
+    try:
+        return jwt.decode(
+            token,
+            secret,
+            options={"verify_signature": False},
+            algorithms=["HS256"],
+        )
+    except jwt.InvalidTokenError:
+        pass
