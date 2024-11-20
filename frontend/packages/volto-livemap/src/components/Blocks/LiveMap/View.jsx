@@ -24,10 +24,12 @@ const View = (props) => {
   };
 
   const updateMap = () => {
-    const points = Object.values(visitors.current);
-    const features = {
+    const othersVisitors = Object.values(visitors.current).filter(
+      (visitor) => visitor.properties.uid !== self.current.uid,
+    );
+    const othersGeojson = {
       type: 'FeatureCollection',
-      features: points.map((visitor) => ({
+      features: othersVisitors.map((visitor) => ({
         type: 'Feature',
         geometry: {
           type: 'Point',
@@ -36,52 +38,110 @@ const View = (props) => {
         properties: visitor.properties,
       })),
     };
+    const selfGeojson = {
+      type: 'FeatureCollection',
+      features: self.current.location
+        ? [
+            {
+              type: 'Feature',
+              geometry: {
+                type: 'Point',
+                coordinates: self.current.location.split(','),
+              },
+              properties: {
+                name: self.current.name,
+                opacity: 1,
+              },
+            },
+          ]
+        : [],
+    };
 
     const map = mapref.current;
-    const source = map.getSource('visitors');
-    if (source) {
-      source.setData(features);
+    const othersSource = map.getSource('others');
+    const selfSource = map.getSource('self');
+    const circlePaint = {
+      'circle-radius': 10,
+      'circle-blur': 0.5,
+      'circle-color': '#008080',
+      'circle-stroke-width': 2,
+      'circle-stroke-color': '#fff',
+      'circle-opacity': ['get', 'opacity'],
+    };
+    const textLayout = {
+      'text-field': ['get', 'name'],
+      'text-font': ['Noto Sans Regular'],
+      'text-offset': [0.6, 0],
+      'text-allow-overlap': true,
+      'text-anchor': 'left',
+    };
+    const textPaint = {
+      'text-color': '#008080',
+      'text-opacity': ['get', 'opacity'],
+    };
+    if (othersSource) {
+      othersSource.setData(othersGeojson);
     } else {
-      if (points.length) {
-        const bounds = features.features.reduce(
-          (bounds, feature) => bounds.extend(feature.geometry.coordinates),
-          new maplibregl.LngLatBounds(),
-        );
-        map.fitBounds(bounds, { maxZoom: 12, padding: 30 });
-      }
-      map.addSource('visitors', {
+      map.addSource('others', {
         type: 'geojson',
-        data: features,
+        data: othersGeojson,
       });
       map.addLayer({
-        id: 'dots',
+        id: 'others-dots',
         type: 'circle',
-        source: 'visitors',
-        paint: {
-          'circle-radius': 10,
-          'circle-blur': 0.5,
-          'circle-color': '#008080',
-          'circle-stroke-width': 2,
-          'circle-stroke-color': '#fff',
-          'circle-opacity': ['get', 'opacity'],
-        },
+        source: 'others',
+        paint: circlePaint,
       });
       map.addLayer({
-        id: 'labels',
+        id: 'others-labels',
         type: 'symbol',
-        source: 'visitors',
-        layout: {
-          'text-field': ['get', 'name'],
-          'text-font': ['Noto Sans Regular'],
-          'text-offset': [0.6, 0],
-          'text-allow-overlap': true,
-          'text-anchor': 'left',
-        },
-        paint: {
-          'text-color': '#008080',
-          'text-opacity': ['get', 'opacity'],
-        },
+        source: 'others',
+        layout: textLayout,
+        paint: textPaint,
       });
+    }
+    if (selfSource) {
+      selfSource.setData(selfGeojson);
+    } else {
+      map.addSource('self', {
+        type: 'geojson',
+        data: selfGeojson,
+      });
+      map.addLayer({
+        id: 'self-dots',
+        type: 'circle',
+        source: 'self',
+        paint: { ...circlePaint, 'circle-color': '#c00000' },
+      });
+      map.addLayer({
+        id: 'self-labels',
+        type: 'symbol',
+        source: 'self',
+        layout: textLayout,
+        paint: { ...textPaint, 'text-color': '#c00000' },
+      });
+      let radius = 1;
+      const animateSelf = (timestamp) => {
+        setTimeout(() => {
+          requestAnimationFrame(animateSelf);
+          radius += 1;
+          if (radius > 10) {
+            radius = 5;
+          }
+          map.setPaintProperty('self-dots', 'circle-radius', radius);
+        }, 1000 / 10);
+      };
+      requestAnimationFrame(animateSelf);
+    }
+    const bounds = new maplibregl.LngLatBounds();
+    othersGeojson.features.forEach((feature) =>
+      bounds.extend(feature.geometry.coordinates),
+    );
+    selfGeojson.features.forEach((feature) =>
+      bounds.extend(feature.geometry.coordinates),
+    );
+    if (!bounds.isEmpty()) {
+      map.fitBounds(bounds, { maxZoom: 12, padding: 30 });
     }
   };
 
@@ -92,6 +152,7 @@ const View = (props) => {
     self.current = {
       ...defaults,
       ...(data ? JSON.parse(data) : {}),
+      location: null,
     };
     setShare(self.current.share);
 
