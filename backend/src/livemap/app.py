@@ -19,9 +19,6 @@ import Zope2
 
 logger = logging.getLogger("uvicorn.error")
 
-event_loop = None
-thread_executor = None
-
 
 class Visitor(pydantic.BaseModel):
     """Represents a connection / visitor"""
@@ -69,6 +66,7 @@ class Channel:
         logger.info(f"disconnected: {visitor.uid}")
 
     async def send(self, message: dict):
+        logger.info(f"send: {message}")
         async with asyncio.TaskGroup() as tg:
             for visitor in self.visitors.values():
                 if visitor.active:
@@ -93,6 +91,8 @@ channels = defaultdict(Channel)
 
 async def stream(websocket: WebSocket):
     """Main websocket route"""
+    app.event_loop = asyncio.get_event_loop()
+
     block_id = websocket.query_params["block_id"]
     uid = websocket.query_params["uid"]
     user_id = await get_userid_from_websocket(websocket)
@@ -113,20 +113,14 @@ async def stream(websocket: WebSocket):
         await channel.send(visitor.to_public_json())
 
 
-def make_livemap_app(executor):
-    global thread_executor, event_loop
-    thread_executor = executor
-    event_loop = asyncio.get_event_loop()
-    app = Starlette(
-        routes=[WebSocketRoute("/stream", endpoint=stream)],
-    )
-    return app
+app = Starlette(
+    routes=[WebSocketRoute("/stream", endpoint=stream)],
+)
 
 
 async def run_plone_func(userid, func, *args):
-    loop = asyncio.get_event_loop()
-    return await loop.run_in_executor(
-        thread_executor, _run_plone_func, userid, func, *args
+    return await asyncio.get_event_loop().run_in_executor(
+        app.threadpool, _run_plone_func, userid, func, *args
     )
 
 
@@ -188,5 +182,5 @@ def handle_user_properties_updated(member, event):
             if visitor.user_id == user_id:
                 visitor.name = name
                 asyncio.run_coroutine_threadsafe(
-                    channel.send(visitor.to_public_json()), event_loop
+                    channel.send(visitor.to_public_json()), app.event_loop
                 )
