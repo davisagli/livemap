@@ -73,13 +73,12 @@ class Channel:
                     tg.create_task(visitor.websocket.send_json(message))
 
     async def follow(self, visitor: Visitor):
-        userid = await get_userid_from_websocket(visitor.websocket)
         while True:
             data = await visitor.websocket.receive_json()
             visitor.location = data.get("location")
             name = data.get("name", "")
-            if userid and name != visitor.name:
-                await run_plone_func(userid, save_name_to_profile, name)
+            if visitor.user_id and name != visitor.name:
+                await run_plone_func(visitor.user_id, save_name_to_profile, name)
             visitor.name = name
             s = visitor.to_public_json()
             logger.info(f"update: {s}")
