@@ -8,22 +8,17 @@ import sys
 import uvicorn
 
 
-def make_app():
-    zope_conf = sys.argv[-1]
-    zope = make_wsgi_app({}, zope_conf)
-    return Starlette(
-        debug=True,
-        routes=[
-            Mount("/ws/livemap", app=livemap_app),
-            Mount("/", app=WSGIMiddleware(zope, workers=2)),
-        ],
-    )
-
+zope_conf = sys.argv[-1]
+zope = make_wsgi_app({}, zope_conf)
+zope_wsgi = WSGIMiddleware(zope, workers=2)
+livemap_app.threadpool = zope_wsgi.executor
+app = Starlette(
+    debug=True,
+    routes=[
+        Mount("/ws/livemap", app=livemap_app),
+        Mount("/", app=zope_wsgi),
+    ],
+)
 
 if __name__ == "__main__":
-    uvicorn.run(
-        app="livemap.asgi:make_app",
-        host="0.0.0.0",
-        port=8080,
-        # reload=True,
-    )
+    uvicorn.run(app=app, host="0.0.0.0", port=8080)
