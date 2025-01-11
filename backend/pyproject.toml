@@ -32,6 +32,9 @@ dependencies = [
     "uvicorn[standard]",
 ]
 
+[project.scripts]
+livemap = "livemap.app:main"
+
 [project.urls]
 Source = "https://github.com/davisagli/livemap"
 
@@ -39,9 +42,6 @@ Source = "https://github.com/davisagli/livemap"
 include = [
     "/src",
 ]
-
-[tool.hatch.envs.default.scripts]
-livemap = "python -m livemap.app"
 
 [tool.isort]
 profile = "plone"
