@@ -1,6 +1,6 @@
 # livemap
 
-Plone websockets demo
+Live map websockets demo
 
 ## Features
 
@@ -13,6 +13,7 @@ Install livemap with `pip`:
 ```shell
 pip install livemap
 ```
+
 And to create the Plone site:
 
 ```shell
