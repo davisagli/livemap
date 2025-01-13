@@ -1,4 +1,3 @@
-from collections import defaultdict
 from starlette.applications import Starlette
 from starlette.routing import WebSocketRoute
 from starlette.websockets import WebSocket
@@ -37,7 +36,7 @@ class Visitor(pydantic.BaseModel):
 
 
 class Channel:
-    """Manages active websocket visitors for one block"""
+    """Manages active websocket visitors"""
 
     visitors: dict[str, Visitor]
 
@@ -74,17 +73,15 @@ class Channel:
             await self.send(s)
 
 
-channels = defaultdict(Channel)
+channel = Channel()
 
 
 async def stream(websocket: WebSocket):
     """Main websocket route"""
     app.event_loop = asyncio.get_event_loop()
 
-    block_id = websocket.query_params["block_id"]
     uid = websocket.query_params["uid"]
 
-    channel = channels[block_id]
     visitor = Visitor(websocket=websocket, uid=uid)
     await channel.connect(visitor)
     try:

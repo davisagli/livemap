@@ -3,25 +3,19 @@ repos:
     hooks:
       - id: prettier
         name: prettier
-        entry: pnpm exec prettier --write
+        entry: npm run prettier --write
         language: system
-        files: '^packages/.*/src/.*/?.*.(js|jsx|ts|tsx)$'
+        files: "^packages/.*/src/.*/?.*.(js|jsx|ts|tsx)$"
         types: [file]
       - id: eslint
         name: eslint
-        entry: bash -c "VOLTOCONFIG=$(pwd)/volto.config.js pnpm exec eslint --fix"
+        entry: npm run eslint --fix
         language: system
-        files: '^packages/.*/src/.*/?.*.(js|jsx|ts|tsx)$'
+        files: "^packages/.*/src/.*/?.*.(js|jsx|ts|tsx)$"
         types: [file]
       - id: stylelint
         name: stylelint
-        entry: pnpm exec stylelint --fix
+        entry: npm run stylelint --fix
         language: system
-        files: '^packages/.*/src/.*/?.*.(css|scss|less)$'
-        types: [file]
-      - id: i18n
-        name: i18n
-        entry: make ci-i18n
-        language: system
-        files: '^packages/.*/src/.*/?.*.(js|jsx|ts|tsx)$'
+        files: "^packages/.*/src/.*/?.*.(css|scss|less)$"
         types: [file]

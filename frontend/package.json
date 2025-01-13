@@ -1,50 +1,30 @@
 {
-  "name": "volto-livemap-dev",
-  "version": "1.0.0-alpha.0",
-  "description": "Plone websockets demo",
-  "author": "David Glick",
-  "homepage": "https://github.com/davisagli/volto-livemap",
-  "license": "MIT",
-  "keywords": [
-    "volto-addon",
-    "volto",
-    "plone",
-    "react"
-  ],
+  "name": "livemap-frontend",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
   "scripts": {
-    "preinstall": "npx only-allow pnpm",
-    "start": "VOLTOCONFIG=$(pwd)/volto.config.js pnpm --filter @plone/volto start",
-    "start:prod": "pnpm --filter @plone/volto start:prod",
-    "build": "VOLTOCONFIG=$(pwd)/volto.config.js pnpm --filter @plone/volto build",
-    "build:deps": "pnpm --filter @plone/registry --filter @plone/components build",
-    "i18n": "pnpm --filter volto-livemap i18n && VOLTOCONFIG=$(pwd)/volto.config.js pnpm --filter @plone/volto i18n",
-    "test": "RAZZLE_JEST_CONFIG=$(pwd)/jest-addon.config.js pnpm --filter @plone/volto test -- --passWithNoTests",
-    "lint": "VOLTOCONFIG=$(pwd)/volto.config.js eslint 'packages/**/src/**/*.{js,jsx,ts,tsx}'",
-    "lint:fix": "VOLTOCONFIG=$(pwd)/volto.config.js eslint --fix 'packages/**/src/**/*.{js,jsx,ts,tsx}'",
-    "prettier": "prettier --check 'packages/**/src/**/*.{js,jsx,ts,tsx}'",
-    "prettier:fix": "prettier --write 'packages/**/src/**/*.{js,jsx,ts,tsx}' ",
-    "stylelint": "stylelint 'packages/**/src/**/*.{css,scss,less}' --allow-empty-input",
-    "stylelint:fix": "stylelint 'packages/**/src/**/*.{css,scss,less}' --fix --allow-empty-input",
-    "dry-release": "pnpm --filter volto-livemap dry-release",
-    "release": "pnpm --filter volto-livemap release",
-    "release-major-alpha": "pnpm --filter volto-livemap release-major-alpha",
-    "release-alpha": "pnpm --filter volto-livemap release-alpha",
-    "storybook": "VOLTOCONFIG=$(pwd)/volto.config.js pnpm --filter @plone/volto storybook dev -p 6006 -c $(pwd)/.storybook",
-    "storybook-build": "VOLTOCONFIG=$(pwd)/volto.config.js pnpm --filter @plone/volto build-storybook -c $(pwd)/.storybook"
+    "dev": "vite",
+    "build": "vite build",
+    "lint": "eslint .",
+    "preview": "vite preview"
   },
   "dependencies": {
-    "@plone/volto": "workspace:*",
-    "@plone/registry": "workspace:*",
-    "volto-livemap": "workspace:*"
+    "maplibre-gl": "^4.7.1",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "uuid": "^10.0.0"
   },
   "devDependencies": {
-    "mrs-developer": "^2.2.0"
-  },
-  "pnpm": {
-    "overrides": {
-      "@pmmmwh/react-refresh-webpack-plugin": "^0.5.15",
-      "react-refresh": "^0.14.2"
-    }
-  },
-  "packageManager": "pnpm@9.1.1"
+    "@eslint/js": "^9.17.0",
+    "@types/react": "^18.3.18",
+    "@types/react-dom": "^18.3.5",
+    "@vitejs/plugin-react": "^4.3.4",
+    "eslint": "^9.17.0",
+    "eslint-plugin-react": "^7.37.2",
+    "eslint-plugin-react-hooks": "^5.0.0",
+    "eslint-plugin-react-refresh": "^0.4.16",
+    "globals": "^15.14.0",
+    "vite": "^6.0.5"
+  }
 }

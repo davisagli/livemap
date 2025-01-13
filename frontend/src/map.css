@@ -1,8 +1,11 @@
-.block.livemap {
-  position: relative;
-  height: 60vh;
+.livemap {
+  position: fixed;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  right: 0;
 }
-.block.livemap .controls {
+.livemap .controls {
   position: absolute !important;
   z-index: 100;
   top: 3px;

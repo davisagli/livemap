@@ -1,12 +1,10 @@
-import { useEffect, useRef, useState } from 'react';
-import { v4 as uuid } from 'uuid';
-import maplibregl from 'maplibre-gl';
-import 'maplibre-gl/dist/maplibre-gl.css';
-import './map.css';
+import { useEffect, useRef, useState } from "react";
+import { v4 as uuid } from "uuid";
+import maplibregl from "maplibre-gl";
+import "maplibre-gl/dist/maplibre-gl.css";
+import "./map.css";
 
-const View = (props) => {
-  const { block } = props;
-
+const LiveMap = () => {
   const mapContainer = useRef(null);
   const mapref = useRef(null);
   const visitors = useRef({});
@@ -15,38 +13,38 @@ const View = (props) => {
     longitude: Math.random() * 0.032 - 0.016,
     latitude: Math.random() * 0.032 - 0.016,
   });
-  const [share, setShare] = useState('yes');
+  const [share, setShare] = useState("yes");
 
   const self = useRef({});
   const save = (changes) => {
     self.current = { ...self.current, ...changes };
-    localStorage.setItem('livemap_self', JSON.stringify(self.current));
+    localStorage.setItem("livemap_self", JSON.stringify(self.current));
   };
 
   const updateMap = () => {
     const othersVisitors = Object.values(visitors.current).filter(
-      (visitor) => visitor.properties.uid !== self.current.uid,
+      (visitor) => visitor.properties.uid !== self.current.uid
     );
     const othersGeojson = {
-      type: 'FeatureCollection',
+      type: "FeatureCollection",
       features: othersVisitors.map((visitor) => ({
-        type: 'Feature',
+        type: "Feature",
         geometry: {
-          type: 'Point',
+          type: "Point",
           coordinates: visitor.coordinates,
         },
         properties: visitor.properties,
       })),
     };
     const selfGeojson = {
-      type: 'FeatureCollection',
+      type: "FeatureCollection",
       features: self.current.location
         ? [
             {
-              type: 'Feature',
+              type: "Feature",
               geometry: {
-                type: 'Point',
-                coordinates: self.current.location.split(','),
+                type: "Point",
+                coordinates: self.current.location.split(","),
               },
               properties: {
                 name: self.current.name,
@@ -58,44 +56,44 @@ const View = (props) => {
     };
 
     const map = mapref.current;
-    const othersSource = map.getSource('others');
-    const selfSource = map.getSource('self');
+    const othersSource = map.getSource("others");
+    const selfSource = map.getSource("self");
     const circlePaint = {
-      'circle-radius': 10,
-      'circle-blur': 0.5,
-      'circle-color': '#008080',
-      'circle-stroke-width': 2,
-      'circle-stroke-color': '#fff',
-      'circle-opacity': ['get', 'opacity'],
+      "circle-radius": 10,
+      "circle-blur": 0.5,
+      "circle-color": "#008080",
+      "circle-stroke-width": 2,
+      "circle-stroke-color": "#fff",
+      "circle-opacity": ["get", "opacity"],
     };
     const textLayout = {
-      'text-field': ['get', 'name'],
-      'text-font': ['Noto Sans Regular'],
-      'text-offset': [0.6, 0],
-      'text-allow-overlap': true,
-      'text-anchor': 'left',
+      "text-field": ["get", "name"],
+      "text-font": ["Noto Sans Regular"],
+      "text-offset": [0.6, 0],
+      "text-allow-overlap": true,
+      "text-anchor": "left",
     };
     const textPaint = {
-      'text-color': '#008080',
-      'text-opacity': ['get', 'opacity'],
+      "text-color": "#008080",
+      "text-opacity": ["get", "opacity"],
     };
     if (othersSource) {
       othersSource.setData(othersGeojson);
     } else {
-      map.addSource('others', {
-        type: 'geojson',
+      map.addSource("others", {
+        type: "geojson",
         data: othersGeojson,
       });
       map.addLayer({
-        id: 'others-dots',
-        type: 'circle',
-        source: 'others',
+        id: "others-dots",
+        type: "circle",
+        source: "others",
         paint: circlePaint,
       });
       map.addLayer({
-        id: 'others-labels',
-        type: 'symbol',
-        source: 'others',
+        id: "others-labels",
+        type: "symbol",
+        source: "others",
         layout: textLayout,
         paint: textPaint,
       });
@@ -103,22 +101,22 @@ const View = (props) => {
     if (selfSource) {
       selfSource.setData(selfGeojson);
     } else {
-      map.addSource('self', {
-        type: 'geojson',
+      map.addSource("self", {
+        type: "geojson",
         data: selfGeojson,
       });
       map.addLayer({
-        id: 'self-dots',
-        type: 'circle',
-        source: 'self',
-        paint: { ...circlePaint, 'circle-color': '#c00000' },
+        id: "self-dots",
+        type: "circle",
+        source: "self",
+        paint: { ...circlePaint, "circle-color": "#c00000" },
       });
       map.addLayer({
-        id: 'self-labels',
-        type: 'symbol',
-        source: 'self',
+        id: "self-labels",
+        type: "symbol",
+        source: "self",
         layout: textLayout,
-        paint: { ...textPaint, 'text-color': '#c00000' },
+        paint: { ...textPaint, "text-color": "#c00000" },
       });
       let radius = 1;
       const animateSelf = (timestamp) => {
@@ -128,17 +126,17 @@ const View = (props) => {
           if (radius > 10) {
             radius = 5;
           }
-          map.setPaintProperty('self-dots', 'circle-radius', radius);
+          map.setPaintProperty("self-dots", "circle-radius", radius);
         }, 1000 / 10);
       };
       requestAnimationFrame(animateSelf);
     }
     const bounds = new maplibregl.LngLatBounds();
     othersGeojson.features.forEach((feature) =>
-      bounds.extend(feature.geometry.coordinates),
+      bounds.extend(feature.geometry.coordinates)
     );
     selfGeojson.features.forEach((feature) =>
-      bounds.extend(feature.geometry.coordinates),
+      bounds.extend(feature.geometry.coordinates)
     );
     if (!bounds.isEmpty()) {
       map.fitBounds(bounds, { maxZoom: 12, padding: 30 });
@@ -147,8 +145,8 @@ const View = (props) => {
 
   useEffect(() => {
     // get self from localstorage
-    let data = localStorage.getItem('livemap_self');
-    const defaults = { uid: uuid(), name: '', share: 'yes' };
+    let data = localStorage.getItem("livemap_self");
+    const defaults = { uid: uuid(), name: "", share: "yes" };
     self.current = {
       ...defaults,
       ...(data ? JSON.parse(data) : {}),
@@ -158,9 +156,9 @@ const View = (props) => {
 
     // connect to websocket
     ws.current = new WebSocket(
-      (window.location.hostname === 'localhost'
-        ? 'http://localhost:8080'
-        : '') + `/ws/livemap/stream?block_id=${block}&uid=${self.current.uid}`,
+      (window.location.hostname === "localhost"
+        ? "http://localhost:8080"
+        : "") + `/stream?uid=${self.current.uid}`
     );
     ws.current.onmessage = (m) => {
       const visitor = JSON.parse(m.data);
@@ -174,7 +172,7 @@ const View = (props) => {
       }
       if (visitor.location) {
         visitors.current[visitor.uid] = {
-          coordinates: visitor.location.split(','),
+          coordinates: visitor.location.split(","),
           properties: { ...visitor, opacity: visitor.active ? 1 : 0.4 },
         };
       } else {
@@ -188,17 +186,17 @@ const View = (props) => {
     // initialize map
     const map = (mapref.current = new maplibregl.Map({
       container: mapContainer.current,
-      projection: 'globe',
+      projection: "globe",
       zoom: 8,
       center: [-122.333, 47.606],
-      style: 'https://tiles.openfreemap.org/styles/liberty',
+      style: "https://tiles.openfreemap.org/styles/liberty",
     }));
-    map.on('load', async () => {
+    map.on("load", async () => {
       mapref.current.ready = true;
       updateMap();
     });
     return () => ws.current.close();
-  }, [block]);
+  }, []);
 
   useEffect(() => {
     // track location
@@ -206,22 +204,24 @@ const View = (props) => {
       if (ws.current === null || ws.current.readyState !== WebSocket.OPEN) {
         return;
       }
-      if (share === 'no') {
+      if (share === "no") {
         self.current.location = null;
         ws.current.send(
           JSON.stringify({
             uid: self.current.uid,
             name: self.current.name,
             location: null,
-          }),
+          })
         );
       } else {
         // get and send current location
         navigator.geolocation.getCurrentPosition(
           (pos) => {
             const location =
-              share === 'fuzzy'
-                ? `${pos.coords.longitude + offset.longitude},${pos.coords.latitude + offset.latitude}`
+              share === "fuzzy"
+                ? `${pos.coords.longitude + offset.longitude},${
+                    pos.coords.latitude + offset.latitude
+                  }`
                 : `${pos.coords.longitude},${pos.coords.latitude}`;
             if (location !== self.current.location) {
               self.current.location = location;
@@ -230,25 +230,25 @@ const View = (props) => {
                   uid: self.current.uid,
                   name: self.current.name,
                   location,
-                }),
+                })
               );
             }
           },
           (error) => console.log(error),
-          { maximumAge: 1000, enableHighAccuracy: true },
+          { maximumAge: 1000, enableHighAccuracy: true }
         );
       }
     };
     trackLocation();
     ws.current.onopen = () => trackLocation();
-    if (share !== 'no') {
+    if (share !== "no") {
       let interval = setInterval(trackLocation, 5000);
       return () => clearInterval(interval);
     }
   }, [offset, share]);
 
   return (
-    <div className="livemap block">
+    <div className="livemap">
       <form className="controls ui form">
         <div className="field">
           <input
@@ -266,30 +266,30 @@ const View = (props) => {
           <label>Share location?</label>
           <input
             type="radio"
-            checked={share === 'yes'}
+            checked={share === "yes"}
             onChange={() => {
-              setShare('yes');
-              save({ share: 'yes' });
+              setShare("yes");
+              save({ share: "yes" });
             }}
-          />{' '}
-          Yes{' '}
+          />{" "}
+          Yes{" "}
           <input
             type="radio"
-            checked={share === 'no'}
+            checked={share === "no"}
             onChange={() => {
-              setShare('no');
-              save({ share: 'no' });
+              setShare("no");
+              save({ share: "no" });
             }}
-          />{' '}
-          No{' '}
+          />{" "}
+          No{" "}
           <input
             type="radio"
-            checked={share === 'fuzzy'}
+            checked={share === "fuzzy"}
             onChange={() => {
-              setShare('fuzzy');
-              save({ share: 'fuzzy' });
+              setShare("fuzzy");
+              save({ share: "fuzzy" });
             }}
-          />{' '}
+          />{" "}
           Fuzzy
         </div>
       </form>
@@ -298,4 +298,4 @@ const View = (props) => {
   );
 };
 
-export default View;
+export default LiveMap;
