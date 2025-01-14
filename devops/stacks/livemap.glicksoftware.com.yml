@@ -52,7 +52,7 @@ services:
       - --providers.docker.constraints=Label(`traefik.constraint-label`, `public`)
       - --providers.docker.exposedbydefault=false
       - --providers.docker.swarmmode
-      - --providers.docker.network=livemap-glicksoftware-com_nw-internal
+      - --providers.docker.network=livemap-glicksoftware-com_nw-public
       - --entrypoints.http.address=:80
       - --entrypoints.https.address=:443
       - --certificatesresolvers.le.acme.email=david@glicksoftware.com
@@ -65,18 +65,11 @@ services:
 
     networks:
       - nw-public
-      - nw-internal
 
   frontend:
     image: ghcr.io/davisagli/livemap-frontend:${STACK_PARAM:-latest}
-    environment:
-      RAZZLE_INTERNAL_API_PATH: http://backend:8080/Plone
-      RAZZLE_API_PATH: https://livemap.glicksoftware.com
-    depends_on:
-      - backend
     networks:
       - nw-public
-      - nw-internal
     deploy:
       replicas: 1
       update_config:
@@ -99,14 +92,8 @@ services:
 
   backend:
     image: ghcr.io/davisagli/livemap-backend:${STACK_PARAM:-latest}
-    command: ./docker-entrypoint.sh /app/bin/python -m livemap.asgi etc/relstorage.conf
-    environment:
-      RELSTORAGE_DSN: "dbname='${DB_NAME:-plone}' user='${DB_USER:-plone}' host='${DB_HOST:-db}' password='${DB_PASSWORD:-hAlvjRrozeNl}' port='${DB_PORT:-5432}'"
-    depends_on:
-      - db
     networks:
       - nw-public
-      - nw-internal
     deploy:
       replicas: 1
       update_config:
@@ -118,67 +105,16 @@ services:
         - traefik.constraint-label=public
         # Services
         - traefik.http.services.svc-backend.loadbalancer.server.port=8080
-        # Middlewares
-        ## VHM rewrite /++api++/
-        - "traefik.http.middlewares.mw-backend-vhm-api.replacepathregex.regex=^/\\+\\+api\\+\\+($$|/.*)"
-        - "traefik.http.middlewares.mw-backend-vhm-api.replacepathregex.replacement=/VirtualHostBase/https/livemap.glicksoftware.com/Plone/++api++/VirtualHostRoot$$1"
-        ## VHM rewrite /ClassicUI/
-        - "traefik.http.middlewares.mw-backend-vhm-classic.replacepathregex.regex=^/ClassicUI($$|/.*)"
-        - "traefik.http.middlewares.mw-backend-vhm-classic.replacepathregex.replacement=/VirtualHostBase/https/livemap.glicksoftware.com/Plone/VirtualHostRoot/_vh_ClassicUI$$1"
-        ## Basic Authentication
-        ### Note: all dollar signs in the hash need to be doubled for escaping.
-        ### To create user:password pair, it's possible to use this command:
-        ### echo $(htpasswd -nb user password) | sed -e s/\\$/\\$\\$/g
-        ### Defaults to admin:admin
-        - traefik.http.middlewares.mw-backend-auth.basicauth.users=admin:$$apr1$$uZPT5Fgu$$AmlIdamxT5ipBvPlsdfD70
-
         # Routes
-        ## /++api++
-        - traefik.http.routers.rt-backend-api.rule=Host(`livemap.glicksoftware.com`) && PathPrefix(`/++api++`)
-        - traefik.http.routers.rt-backend-api.entrypoints=https
-        - traefik.http.routers.rt-backend-api.tls=true
-        - traefik.http.routers.rt-backend-api.service=svc-backend
-        - traefik.http.routers.rt-backend-api.middlewares=gzip,mw-backend-vhm-api
-        ## /ClassicUI
-        - traefik.http.routers.rt-backend-classic.rule=Host(`livemap.glicksoftware.com`) && PathPrefix(`/ClassicUI`)
-        - traefik.http.routers.rt-backend-classic.entrypoints=https
-        - traefik.http.routers.rt-backend-classic.tls=true
-        - traefik.http.routers.rt-backend-classic.service=svc-backend
-        - traefik.http.routers.rt-backend-classic.middlewares=gzip,mw-backend-auth,mw-backend-vhm-classic
-        ## /ws
-        - traefik.http.routers.rt-backend-ws.rule=Host(`livemap.glicksoftware.com`) && PathPrefix(`/ws/`)
+        ## /stream
+        - traefik.http.routers.rt-backend-ws.rule=Host(`livemap.glicksoftware.com`) && PathPrefix(`/stream`)
         - traefik.http.routers.rt-backend-ws.entrypoints=https
         - traefik.http.routers.rt-backend-ws.tls=true
         - traefik.http.routers.rt-backend-ws.service=svc-backend
 
-  db:
-    image: postgres:14
-    environment:
-      POSTGRES_USER: plone
-      POSTGRES_PASSWORD: hAlvjRrozeNl
-      POSTGRES_DB: plone
-    deploy:
-      replicas: 1
-      update_config:
-        parallelism: 1
-        delay: 1s
-        order: stop-first
-    volumes:
-      - vol-site-data:/var/lib/postgresql/data
-    networks:
-      - nw-internal
-
 volumes:
   vol-traefik-certs: {}
-  vol-site-data:
-    driver_opts:
-      type: none
-      device: ${DEPLOY_FOLDER:-/srv/livemap/data}
-      o: bind
 
 networks:
   nw-public:
     external: true
-  nw-internal:
-    internal: true
-    driver: overlay
