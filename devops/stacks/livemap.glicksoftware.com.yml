@@ -80,7 +80,7 @@ services:
         - traefik.enable=true
         - traefik.constraint-label=public
         # Service
-        - traefik.http.services.svc-frontend.loadbalancer.server.port=3000
+        - traefik.http.services.svc-frontend.loadbalancer.server.port=4173
         # Routers
         ## /
         - traefik.http.routers.rt-frontend.rule=Host(`livemap.glicksoftware.com`)
