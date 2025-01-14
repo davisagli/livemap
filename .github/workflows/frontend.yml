@@ -33,10 +33,7 @@ jobs:
 
       - name: Linting
         id: lint
-        run: |
-          npm run prettier
-          npm run eslint
-          npm run stylelint
+        run: npm run lint
 
   release:
     runs-on: ubuntu-latest
