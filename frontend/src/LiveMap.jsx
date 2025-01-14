@@ -119,7 +119,7 @@ const LiveMap = () => {
         paint: { ...textPaint, "text-color": "#c00000" },
       });
       let radius = 1;
-      const animateSelf = (timestamp) => {
+      const animateSelf = () => {
         setTimeout(() => {
           requestAnimationFrame(animateSelf);
           radius += 1;
