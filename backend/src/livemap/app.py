@@ -78,8 +78,6 @@ channel = Channel()
 
 async def stream(websocket: WebSocket):
     """Main websocket route"""
-    app.event_loop = asyncio.get_event_loop()
-
     uid = websocket.query_params["uid"]
 
     visitor = Visitor(websocket=websocket, uid=uid)
